@@ -7,8 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-#db_url = "postgresql+psycopg://aankitroy:xyzpassword@localhost:5432/ai"
-db_url = "postgresql+psycopg://postgres:postgres@localhost:5432/context_agent_sample_data"
+db_url = "postgresql+psycopg://aankitroy:xyzpassword@localhost:5432/ai"
 
 # --- SQL Agent ---
 sql_agent = Agent(
