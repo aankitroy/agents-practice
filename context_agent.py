@@ -2,7 +2,7 @@ import json
 from textwrap import dedent
 from agno.agent import Agent, RunResponse
 from agno.models.openai import OpenAIChat
-from sql_agent import query_sql_agent  # ✅ Import the fixed function
+from sql_agent import query_sql_agent  # Imports from sql agent
 
 def fetch_data() -> str:
     """Fetches and prepares the actual data for context usage."""
@@ -23,8 +23,8 @@ def fetch_data() -> str:
         - Ensure all numerical values retain their precision.
     """)
 
-    response: RunResponse = query_sql_agent(query)  # ✅ Uses `RunResponse`
-    return json.dumps(response.content, indent=4)  # ✅ Extract structured content
+    response: RunResponse = query_sql_agent(query) 
+    return json.dumps(response.content, indent=4)  
 
 # Fetch database schema
 data = fetch_data()
