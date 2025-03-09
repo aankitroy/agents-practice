@@ -1,12 +1,14 @@
 from textwrap import dedent
-from agno.agent import Agent
+from agno.agent import Agent, RunResponse
 from agno.models.openai import OpenAIChat
 from agno.tools.sql import SQLTools
 from dotenv import load_dotenv
 
+
 load_dotenv()
 
-db_url = "postgresql+psycopg://aankitroy:xyzpassword@localhost:5432/ai"
+#db_url = "postgresql+psycopg://aankitroy:xyzpassword@localhost:5432/ai"
+db_url = "postgresql+psycopg://postgres:postgres@localhost:5432/context_agent_sample_data"
 
 # --- SQL Agent ---
 sql_agent = Agent(
@@ -32,6 +34,16 @@ sql_agent = Agent(
     markdown=True
 )
 
-user_query = input("Enter your question?: ")
-print("\n--- SQL Agent Output ---\n")
-sql_agent.print_response(user_query, stream=True)
+
+# --- Function to Export ---
+
+def query_sql_agent(query: str) -> RunResponse:
+    """Runs the SQL Agent and returns a structured response."""
+    response: RunResponse = sql_agent.run(query)
+    return response  # Returns a proper RunResponse object
+
+if __name__ == "__main__":
+    # --- Test SQL Agent ---
+    user_query = input("Enter your question?: ")
+    print("\n--- SQL Agent Output ---\n")
+    sql_agent.print_response(user_query, stream=True)
