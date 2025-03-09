@@ -26,7 +26,7 @@ def fetch_data() -> str:
     response: RunResponse = query_sql_agent(query) 
     return json.dumps(response.content, indent=4)  
 
-# Fetch database schema
+# Fetch data
 data = fetch_data()
 
 # --- Context Agent ---
