@@ -4,8 +4,10 @@ from agno.embedder.openai import OpenAIEmbedder
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.vectordb.lancedb import LanceDb, SearchType
+import dotenv
+dotenv.load_dotenv()
 
-agent = Agent(
+knowledge_agent = Agent(
     model=OpenAIChat(id="gpt-4o"),
     description="You are a Thai cuisine expert!",
     instructions=[
@@ -28,8 +30,11 @@ agent = Agent(
 )
 
 # Comment out after the knowledge base is loaded
-if agent.knowledge is not None:
-    agent.knowledge.load()
+if knowledge_agent.knowledge is not None:
+    knowledge_agent.knowledge.load()
 
-agent.print_response("How do I make chicken and galangal in coconut milk soup", stream=True)
-agent.print_response("What is the history of Thai curry?", stream=True)
+def get_knowledge_agent():
+    return knowledge_agent
+
+#knowledge_agent.print_response("How do I make chicken and galangal in coconut milk soup", stream=True)
+#knowledge_agent.print_response("What is the history of Thai curry?", stream=True)
