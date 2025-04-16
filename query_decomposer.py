@@ -31,8 +31,9 @@ class QueryDecomposition(BaseModel):
     class Config:
         extra = "forbid"
 
+model_id = "gpt-4o"
 query_decomposer = Agent(
-        model=OpenAIChat(id="gpt-4o"),
+        model=OpenAIChat(id=model_id),
         description="You are a Query Decomposition Agent specialized in analytics for digital products like meditation or wellness apps.",
         instructions=[
             "Given a high-level analytical question, follow these steps strictly:",
@@ -70,8 +71,7 @@ query_decomposer = Agent(
 if query_decomposer.knowledge is not None:
     query_decomposer.knowledge.load()
 
-def get_query_decomposer():
+def get_query_decomposer(model_id: str):
     return query_decomposer
 
-query_decomposer.print_response("Why did our conversion rate drop in the last week?", stream=True)
 #query_decomposer.print_response("What is the history of Thai curry?", stream=True)

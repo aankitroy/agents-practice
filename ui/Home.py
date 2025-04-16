@@ -27,7 +27,7 @@ async def header():
 async def body():
     st.markdown("### Available Agents")
 
-    col1, = st.columns(1)
+    col1, col2 = st.columns(2)
     with col1:
         st.markdown(
             """
@@ -41,6 +41,19 @@ async def body():
         )
         if st.button("Launch Knowledge Agent", key="knowledge_agent_button"):
             st.switch_page("pages/Knowledge.py")
+    with col2:
+        st.markdown(
+            """
+        <div style="padding: 20px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 20px;">
+            <h3>Query Decomposition Agent</h3>
+            <p>A query decomposition agent that decomposes a high-level analytical question into a series of sub-questions.</p>
+            <p>Perfect for exploring your own knowledge base.</p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )   
+        if st.button("Launch Query Decomposition Agent", key="query_decomposition_agent_button"):
+            st.switch_page("pages/QueryDecomposition.py")
 
 async def main():
     await header()
