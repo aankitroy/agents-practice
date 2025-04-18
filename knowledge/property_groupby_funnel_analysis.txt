@@ -1,0 +1,172 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2821
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fmodern\fcharset0 Courier;\f1\froman\fcharset0 Times-Bold;\f2\froman\fcharset0 Times-Roman;
+}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\deftab720
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs26 \cf0 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 id: property_groupby_funnel_analysis\
+name: Property Group-By Funnel Analysis\
+description: Analyzes funnel conversion rates grouped by combinations of multiple properties, enabling multi-dimensional segmentation.\
+when_to_use:\
+  - template_type: "Multi-Property Funnel Analysis"\
+  - analysis_goal: "Multi-Dimensional Segmentation"\
+  - check_point_1: "When you need to analyze how combinations of properties affect funnel progression"\
+  - check_point_2: "When you want to identify high and low performing segments across property combinations"\
+  - query_type: "Multi-Property Impact"\
+\
+input_parameters:\
+  required:\
+    - user_id_field: "properties_device_id"   # Field that uniquely identifies users\
+    - event_time_field: "event_time"          # Field containing the timestamp of events\
+    - event_field: "event_name"               # Field containing the event name\
+    - group_by_properties: []                 # Array of properties to group by (e.g., ["country", "device_type"])\
+    - min_users_per_group: 100                # Minimum users required for a group to be included in results\
+    - start_date: "2023-01-01"                # Start date for analysis\
+    - end_date: "2023-01-31"                  # End date for analysis\
+    - database: "analytics"                   # Database name\
+    - table_name: "events"                    # Table name\
+    - funnel_steps: []                        # Array of step names in order\
+    - conversion_window: 86400                # Time window in seconds for conversion (24 hours)\
+  \
+  optional:\
+    - time_zone: "UTC"                        # Timezone for date calculations\
+    - segment_filter: ""                      # Additional WHERE clause filter\
+    - top_segments_limit: 20                  # Limit for number of top/bottom segments to show\
+\
+output_fields:\
+  - segment_id: "Unique identifier for each property combination group"\
+  - segment_properties: "JSON object containing the property values for this segment"\
+  - users_count: "Total users in this segment"\
+  - completion_rate: "Percentage of users who completed the entire funnel"\
+  - step_conversion_rates: "JSON array of conversion rates for each step"\
+  - performance_vs_avg: "Difference in completion rate compared to overall average"\
+  - ranking: "Rank of this segment compared to others (1 = highest conversion)"\
+\
+result_table: "property_groupby_funnel_results"       # Temporary table name for results\
+dependencies:\
+  - core_funnel_analysis                              # Depends on core funnel analysis\
+execution_order: 4                                    # Execute after core funnel and other property analyses\
+sql_template: "property_groupby_funnel.sql"\
+\
+pre_processing: |\
+  # This code generates the group by clause for properties\
+  group_by_fields = []\
+  for prop in group_by_properties:\
+    group_by_fields.append(f"\{\{\{\{database\}\}\}\}.\{\{\{\{table_name\}\}\}\}.\{prop\}")\
+  \
+  # Generate the segment_identifier based on property combinations\
+  segment_properties = []\
+  for prop in group_by_properties:\
+    segment_properties.append(f"'\{prop\}', \{prop\}")\
+  \
+  # Generate the final query\
+  final_query = sql_template\
+    .replace("\{\{group_by_fields\}\}", ", ".join(group_by_fields))\
+    .replace("\{\{segment_properties\}\}", ", ".join(segment_properties))\
+    # Replace other parameters\
+-- property_groupby_funnel.sql\
+WITH segment_users AS (\
+  -- First identify unique segments based on property combinations\
+  SELECT\
+    \{\{user_id_field\}\},\
+    \{\{group_by_fields\}\},\
+    -- Create a unique segment identifier hash\
+    MD5(concat(\{\{group_by_fields\}\})) AS segment_id,\
+    -- Store the property values as a structured object\
+    map(\{\{segment_properties\}\}) AS segment_properties\
+  FROM \{\{database\}\}.\{\{table_name\}\}\
+  WHERE \{\{event_time_field\}\} >= '\{\{start_date\}\}' AND \{\{event_time_field\}\} < '\{\{end_date\}\}'\
+  \{% if segment_filter %\}\
+  AND \{\{segment_filter\}\}\
+  \{% endif %\}\
+  GROUP BY \{\{user_id_field\}\}, \{\{group_by_fields\}\}\
+),\
+segment_sizes AS (\
+  -- Calculate the size of each segment\
+  SELECT\
+    segment_id,\
+    any(segment_properties) AS segment_properties,\
+    count(DISTINCT \{\{user_id_field\}\}) AS users_count\
+  FROM segment_users\
+  GROUP BY segment_id\
+  HAVING users_count >= \{\{min_users_per_group\}\}\
+),\
+funnel_progression AS (\
+  -- Apply funnel analysis to each segment\
+  SELECT\
+    s.segment_id,\
+    s.\{\{user_id_field\}\},\
+    windowFunnel(\{\{conversion_window\}\})(\
+      toDateTime(e.\{\{event_time_field\}\}),\
+      \{% for step in funnel_steps %\}\
+      e.\{\{event_field\}\} = '\{\{step\}\}'\{% if not loop.last %\},\{% endif %\}\
+      \{% endfor %\}\
+    ) AS max_step\
+  FROM segment_users s\
+  JOIN \{\{database\}\}.\{\{table_name\}\} e ON s.\{\{user_id_field\}\} = e.\{\{user_id_field\}\}\
+  WHERE e.\{\{event_time_field\}\} >= '\{\{start_date\}\}' AND e.\{\{event_time_field\}\} < '\{\{end_date\}\}'\
+  AND e.\{\{event_field\}\} IN (\{% for step in funnel_steps %\}'\{\{step\}\}'\{% if not loop.last %\}, \{% endif %\}\{% endfor %\})\
+  GROUP BY s.segment_id, s.\{\{user_id_field\}\}\
+),\
+segment_completion AS (\
+  -- Calculate completion rates for each segment\
+  SELECT\
+    segment_id,\
+    count(DISTINCT \{\{user_id_field\}\}) AS started_count,\
+    countIf(max_step = \{\{funnel_steps|length\}\}) AS completed_count,\
+    round(100.0 * countIf(max_step = \{\{funnel_steps|length\}\}) / count(DISTINCT \{\{user_id_field\}\}), 2) AS completion_rate,\
+    -- Calculate step conversion rates as an array\
+    array(\
+      \{% for i in range(1, funnel_steps|length) %\}\
+      round(100.0 * countIf(max_step >= \{\{i+1\}\}) / countIf(max_step >= \{\{i\}\}), 2)\{% if not loop.last %\},\{% endif %\}\
+      \{% endfor %\}\
+    ) AS step_conversion_rates\
+  FROM funnel_progression\
+  GROUP BY segment_id\
+),\
+overall_completion AS (\
+  -- Calculate the overall completion rate for comparison\
+  SELECT\
+    round(100.0 * countIf(max_step = \{\{funnel_steps|length\}\}) / count(DISTINCT \{\{user_id_field\}\}), 2) AS overall_completion_rate\
+  FROM funnel_progression\
+)\
+\
+-- Final results with ranking\
+SELECT\
+  sc.segment_id,\
+  ss.segment_properties,\
+  ss.users_count,\
+  sc.completion_rate,\
+  sc.step_conversion_rates,\
+  round(sc.completion_rate - oc.overall_completion_rate, 2) AS performance_vs_avg,\
+  rank() OVER (ORDER BY sc.completion_rate DESC) AS ranking\
+FROM segment_completion sc\
+JOIN segment_sizes ss ON sc.segment_id = ss.segment_id\
+CROSS JOIN overall_completion oc\
+ORDER BY ranking\
+LIMIT \{\{top_segments_limit\}\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f1\b\fs24 \cf0 \strokec2 Example Usage:
+\f2\b0 \strokec2 \
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs26 \cf0 \{\
+  "user_id_field": "properties_device_id",\
+  "event_time_field": "event_time",\
+  "event_field": "event_name",\
+  "group_by_properties": ["properties_country_code", "properties_os"],\
+  "min_users_per_group": 100,\
+  "funnel_steps": ["app_open", "signup_started", "signup_completed", "first_purchase"],\
+  "start_date": "2023-01-01",\
+  "end_date": "2023-01-31",\
+  "database": "analytics",\
+  "table_name": "events",\
+  "conversion_window": 86400,\
+  "top_segments_limit": 20\
+\}\
+}

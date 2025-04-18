@@ -6,9 +6,10 @@ from agno.agent import Agent
 from agno.tools.streamlit.components import check_password
 from agno.utils.log import logger
 
-from query_decomposer import get_query_decomposer
-from css import CUSTOM_CSS
-from utils import (
+from funnel_analysis_planning import get_funnel_analysis_planning_agent
+
+from ui.css import CUSTOM_CSS
+from ui.utils import (
     about_agno,
     add_message,
     display_tool_calls,
@@ -22,18 +23,17 @@ from utils import (
 nest_asyncio.apply()
 
 st.set_page_config(
-    page_title="Query Decomposition",
+    page_title="Funnel Analysis Planning",
     page_icon=":crystal_ball:",
     layout="wide",
 )
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
-agent_name = "query_decomposition"
-
+agent_name = "funnel_analysis_planning"
 
 async def header():
-    st.markdown("<h1 class='heading'>Query Decomposition</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 class='heading'>Funnel Analysis Planning</h1>", unsafe_allow_html=True)
     st.markdown(
-        "<p class='subheading'>A query decomposition agent that uses LLM to decompose complex queries into simpler sub-questions.</p>",
+        "<p class='subheading'>A funnel analysis planning agent that uses DuckDuckGo to deliver in-depth answers about any topic.</p>",
         unsafe_allow_html=True,
     )
 
@@ -52,33 +52,33 @@ async def body() -> None:
     ####################################################################
     # Initialize Agent
     ####################################################################
-    query_decomposition: Agent
+    funnel_analysis_planning: Agent
     if (
         agent_name not in st.session_state
         or st.session_state[agent_name]["agent"] is None
         or st.session_state.get("selected_model") != model_id
     ):
-        logger.info("---*--- Creating Query Decomposition agent ---*---")
-        query_decomposition = get_query_decomposer(model_id=model_id)
-        st.session_state[agent_name]["agent"] = query_decomposition
+        logger.info("---*--- Creating Funnel Analysis Planning agent ---*---")
+        funnel_analysis_planning = get_funnel_analysis_planning_agent(user_id=user_id, model_id=model_id)
+        st.session_state[agent_name]["agent"] = funnel_analysis_planning
         st.session_state["selected_model"] = model_id
     else:
-        query_decomposition = st.session_state[agent_name]["agent"]
+        funnel_analysis_planning = st.session_state[agent_name]["agent"]
 
     ####################################################################
     # Load Agent Session from the database
     ####################################################################
     try:
-        st.session_state[agent_name]["session_id"] = query_decomposition.load_session()
+        st.session_state[agent_name]["session_id"] = funnel_analysis_planning.load_session()
     except Exception:
-        st.warning("Could not create Query Decomposition session, is the database running?")
+        st.warning("Could not create Funnel Analysis Planning session, is the database running?")
         return
 
     ####################################################################
     # Load agent runs (i.e. chat history) from memory is messages is empty
     ####################################################################
-    if query_decomposition.memory:
-        agent_runs = query_decomposition.memory.runs
+    if funnel_analysis_planning.memory:
+        agent_runs = funnel_analysis_planning.memory.runs
         if len(agent_runs) > 0:
             # If there are runs, load the messages
             logger.debug("Loading run history")
@@ -132,32 +132,20 @@ async def body() -> None:
                 response = ""
                 try:
                     # Run the agent and stream the response
-                    run_response = await query_decomposition.arun(user_message, stream=True)
-                    
-                    # Handle the response based on what type it is
-                    if hasattr(run_response, '__iter__') and not isinstance(run_response, str):
-                        # If it's iterable (but not a string)
-                        for resp_chunk in run_response:
-                            # Display tool calls if available
-                            if resp_chunk.tools and len(resp_chunk.tools) > 0:
-                                display_tool_calls(tool_calls_container, resp_chunk.tools)
+                    run_response = await funnel_analysis_planning.arun(user_message, stream=True)
+                    async for resp_chunk in run_response:
+                        # Display tool calls if available
+                        if resp_chunk.tools and len(resp_chunk.tools) > 0:
+                            display_tool_calls(tool_calls_container, resp_chunk.tools)
 
-                            # Display response
-                            if resp_chunk.content is not None:
-                                response += resp_chunk.content
-                                resp_container.markdown(response)
-                    else:
-                        # Handle as a single response object
-                        if hasattr(run_response, 'tools') and run_response.tools and len(run_response.tools) > 0:
-                            display_tool_calls(tool_calls_container, run_response.tools)
-                        
-                        if hasattr(run_response, 'content') and run_response.content is not None:
-                            response = str(run_response.content)
+                        # Display response
+                        if resp_chunk.content is not None:
+                            response += resp_chunk.content
                             resp_container.markdown(response)
 
                     # Add the response to the messages
-                    if query_decomposition.run_response is not None:
-                        await add_message(agent_name, "assistant", response, query_decomposition.run_response.tools)
+                    if funnel_analysis_planning.run_response is not None:
+                        await add_message(agent_name, "assistant", response, funnel_analysis_planning.run_response.tools)
                     else:
                         await add_message(agent_name, "assistant", response)
                 except Exception as e:
@@ -169,13 +157,12 @@ async def body() -> None:
     ####################################################################
     # Session selector
     ####################################################################
-    await session_selector(agent_name, query_decomposition, get_query_decomposer, user_id, model_id)
+    await session_selector(agent_name, funnel_analysis_planning, get_funnel_analysis_planning_agent, user_id, model_id)
 
     ####################################################################
     # About section
     ####################################################################
-    await utilities_widget(agent_name, query_decomposition)
-
+    await utilities_widget(agent_name, funnel_analysis_planning)
 
 async def main():
     await initialize_agent_session_state(agent_name)

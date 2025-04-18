@@ -1,0 +1,75 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2821
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww30040\viewh16760\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 id: property_funnel_analysis_with_filter\
+name: Property-Based Funnel Analysis (With Filter)\
+description: Analyzes user progression through the funnel with dynamic property filters applied.\
+when_to_use:\
+  - template_type: "Property-Based Funnel Analysis"\
+  - analysis_goal: "Filter-Based Funnel Analysis"\
+  - check_point_1: "When you need to limit analysis to users with specific properties"\
+  - check_point_2: "When you want to compare filtered funnel to the overall funnel"\
+  - query_type: "Property Filtered Step Conversion"\
+\
+input_parameters:\
+  required:\
+    - user_id_field: "properties_device_id"   # Field that uniquely identifies users\
+    - event_time_field: "event_time"          # Field containing the timestamp of events\
+    - event_field: "event_name"               # Field containing the event name\
+    - start_date: "2023-01-01"                # Start date for analysis\
+    - end_date: "2023-01-31"                  # End date for analysis\
+    - database: "analytics"                   # Database name\
+    - table_name: "events"                    # Table name\
+    - funnel_steps: []                        # Array of step names in order\
+    - conversion_window: 86400                # Time window in seconds for conversion (24 hours)\
+  \
+  optional:\
+    - property_filters: []                    # Array of property filters (e.g., ["device_type = 'mobile'", "country = 'US'"])\
+    - time_zone: "UTC"                        # Timezone for date calculations\
+    - segment_name: "Filtered Segment"        # Name for the segment being analyzed\
+\
+output_fields:\
+  - funnel_step: "Numeric position in funnel (1-based)"\
+  - step_name: "Name of the funnel step"\
+  - segment: "Name of the segment being analyzed"\
+  - users: "Count of users reaching this step"\
+  - overall_conversion_rate: "Percentage of users who reached this step compared to first step"\
+  - step_conversion_rate: "Percentage of users who reached this step compared to previous step"\
+  - comparison_to_overall: "Difference in conversion rate compared to unfiltered funnel"\
+\
+result_table: "property_funnel_with_filter_results"    # Temporary table name for results\
+dependencies:\
+  - core_funnel_analysis                                # Depends on core funnel analysis\
+execution_order: 3                                      # Execute after core funnel analysis\
+sql_template: "property_funnel_with_filter.sql"\
+\
+pre_processing: |\
+  # This code generates the step_conditions parameter\
+  step_conditions = []\
+  for step in funnel_steps:\
+    step_conditions.append(f"\{\{\{\{event_field\}\}\}\} = '\{step\}'")\
+  \
+  # This code generates the step_queries parameter\
+  step_queries = []\
+  for i, step in enumerate(funnel_steps, 1):\
+    step_queries.append(f"""\
+    SELECT \
+      \{i\} as step,\
+      '\{step\}' as step_name,\
+      '\{\{\{\{segment_name\}\}\}\}' as segment,\
+      countIf(level >= \{i\}) as users\
+    FROM filtered_funnel_data\
+    """)\
+  \
+  # Join the step queries\
+  step_queries_str = " UNION ALL ".join(step_queries)\
+  \
+  # Generate the final query\
+  final_query = sql_template\
+    .replace("\{\{step_conditions\}\}", ", ".join(step_conditions))\
+    .replace("\{\{step_queries\}\}", step_queries_str)\
+    # Replace other parameters}

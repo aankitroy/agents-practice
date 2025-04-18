@@ -4,8 +4,8 @@ import nest_asyncio
 import streamlit as st
 from agno.tools.streamlit.components import check_password
 
-from ui.css import CUSTOM_CSS
-from ui.utils import about_agno, footer
+from css import CUSTOM_CSS
+from utils import about_agno, footer
 nest_asyncio.apply()
 
 st.set_page_config(
@@ -27,7 +27,7 @@ async def header():
 async def body():
     st.markdown("### Available Agents")
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(
             """
@@ -54,6 +54,19 @@ async def body():
         )   
         if st.button("Launch Query Decomposition Agent", key="query_decomposition_agent_button"):
             st.switch_page("pages/QueryDecomposition.py")
+    with col3:
+        st.markdown(
+            """
+        <div style="padding: 20px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 20px;">
+            <h3>Funnel Analysis Planning Agent</h3>
+            <p>A funnel analysis planning agent that decomposes a high-level funnel analysis question into a series of sub-questions.</p>
+            <p>Perfect for exploring your own funnel analysis questions.</p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )       
+        if st.button("Launch Funnel Analysis Planning Agent", key="funnel_analysis_planning_agent_button"):
+            st.switch_page("pages/FunnelAnalysisPlanning.py")
 
 async def main():
     await header()

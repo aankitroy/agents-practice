@@ -37,4 +37,4 @@ def get_knowledge_agent():
     return knowledge_agent
 
 #knowledge_agent.print_response("How do I make chicken and galangal in coconut milk soup", stream=True)
-#knowledge_agent.print_response("What is the history of Thai curry?", stream=True)
+knowledge_agent.print_response("What is the history of Thai curry?", stream=True)
